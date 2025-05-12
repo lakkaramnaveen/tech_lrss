@@ -1,4 +1,3 @@
-# main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -15,13 +14,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Pydantic models
 class Task(BaseModel):
     id: str
     title: str
     description: Optional[str] = ""
     completed: bool = False
 
-# Dummy DB
+class TaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    completed: Optional[bool] = None
+
+# Dummy database
 tasks_db: List[Task] = []
 
 @app.get("/tasks", response_model=List[Task])
@@ -42,16 +47,21 @@ def update_task(task_id: str, updated_task: Task):
             return updated_task
     raise HTTPException(status_code=404, detail="Task not found")
 
+@app.patch("/tasks/{task_id}", response_model=Task)
+def update_partial_task(task_id: str, task_update: TaskUpdate):
+    for task in tasks_db:
+        if task.id == task_id:
+            if task_update.title is not None:
+                task.title = task_update.title
+            if task_update.description is not None:
+                task.description = task_update.description
+            if task_update.completed is not None:
+                task.completed = task_update.completed
+            return task
+    raise HTTPException(status_code=404, detail="Task not found")
+
 @app.delete("/tasks/{task_id}")
 def delete_task(task_id: str):
     global tasks_db
     tasks_db = [task for task in tasks_db if task.id != task_id]
     return {"detail": "Task deleted"}
-
-@app.patch("/tasks/{task_id}/toggle")
-def toggle_task(task_id: str):
-    for task in tasks_db:
-        if task.id == task_id:
-            task.completed = not task.completed
-            return task
-    raise HTTPException(status_code=404, detail="Task not found")
